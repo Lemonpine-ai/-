@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>고전 테트리스</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(180deg, #0a0a1a 0%, #1a1a2e 50%, #16213e 100%);
+      font-family: 'Press Start 2P', cursive;
+      color: #00ff88;
+      overflow-x: auto;
+    }
+
+    .app-layout {
+      display: flex;
+      gap: 1.5rem;
+      align-items: flex-start;
+      padding: 1.5rem;
+      max-width: 1400px;
+    }
+
+    .game-container {
+      display: flex;
+      gap: 2rem;
+      align-items: flex-start;
+      padding: 2rem;
+      background: rgba(0, 0, 0, 0.6);
+      border: 4px solid #00ff88;
+      border-radius: 8px;
+      box-shadow: 
+        0 0 20px rgba(0, 255, 136, 0.3),
+        inset 0 0 60px rgba(0, 0, 0, 0.5);
+      position: relative;
+    }
+
+    .game-title {
+      font-size: 1.8rem;
+      text-align: center;
+      margin-bottom: 1.5rem;
+      text-shadow: 0 0 10px #00ff88;
+      animation: titleGlow 2s ease-in-out infinite alternate;
+    }
+
+    @keyframes titleGlow {
+      from { text-shadow: 0 0 10px #00ff88; }
+      to { text-shadow: 0 0 20px #00ff88, 0 0 30px #00ff88; }
+    }
+
+    .game-board-wrapper {
+      position: relative;
+      padding: 8px;
+      background: #000;
+      border: 3px solid #333;
+      box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+    }
+
+    #gameCanvas {
+      display: block;
+      background: #0d0d0d;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      min-width: 220px;
+    }
+
+    .info-box {
+      background: rgba(0, 0, 0, 0.7);
+      border: 2px solid #00ff88;
+      padding: 1rem;
+      border-radius: 4px;
+    }
+
+    .info-label {
+      font-size: 0.95rem;
+      color: #00ff88;
+      margin-bottom: 0.5rem;
+      opacity: 0.9;
+    }
+
+    .info-value {
+      font-size: 1.4rem;
+      color: #fff;
+    }
+
+    #nextPieceCanvas {
+      width: 120px;
+      height: 120px;
+      background: #0d0d0d;
+      border: 2px solid #333;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    .controls-info {
+      font-size: 0.8rem;
+      line-height: 1.8;
+      color: #888;
+    }
+
+    .btn {
+      font-family: 'Press Start 2P', cursive;
+      font-size: 0.9rem;
+      padding: 0.8rem 1rem;
+      background: #00ff88;
+      color: #0a0a1a;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      background: #00cc6a;
+      box-shadow: 0 0 15px rgba(0, 255, 136, 0.5);
+      transform: scale(1.05);
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .music-toggle {
+      margin-top: 0.5rem;
+    }
+
+    /* 라인 클리어 임팩트 효과 */
+    .line-clear-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    .flash-effect {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.6);
+      animation: flashFade 0.2s ease-out forwards;
+      pointer-events: none;
+    }
+
+    @keyframes flashFade {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+
+    .particle {
+      position: absolute;
+      border-radius: 2px;
+      pointer-events: none;
+      z-index: 1001;
+    }
+
+    @keyframes particleExplode {
+      0% {
+        transform: scale(1);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(0);
+        opacity: 0;
+      }
+    }
+
+    .start-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      transition: opacity 0.5s;
+    }
+
+    .start-screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .start-title {
+      font-size: 2.5rem;
+      margin-bottom: 2rem;
+      text-shadow: 0 0 20px #00ff88;
+      animation: titleGlow 1.5s ease-in-out infinite alternate;
+    }
+
+    .start-btn {
+      font-size: 1rem;
+      padding: 1rem 1.5rem;
+    }
+
+    .start-instruction {
+      font-size: 0.95rem;
+      color: #888;
+      margin-bottom: 2rem;
+      line-height: 2;
+      text-align: center;
+    }
+
+    /* 게임오버 오버레이 */
+    .game-over-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1500;
+      border-radius: 4px;
+    }
+
+    .game-over-overlay.visible {
+      display: flex;
+      animation: gameOverFadeIn 0.5s ease-out;
+    }
+
+    @keyframes gameOverFadeIn {
+      from { opacity: 0; background: rgba(0, 0, 0, 0.5); }
+      to { opacity: 1; background: rgba(0, 0, 0, 0.9); }
+    }
+
+    .game-over-title {
+      font-size: 3rem;
+      color: #ff4444;
+      text-shadow: 
+        0 0 20px #ff4444,
+        0 0 40px #ff0000,
+        0 0 60px rgba(255, 68, 68, 0.8);
+      margin-bottom: 1rem;
+      animation: gameOverPulse 1s ease-in-out infinite alternate;
+      letter-spacing: 0.2em;
+    }
+
+    @keyframes gameOverPulse {
+      from { transform: scale(1); text-shadow: 0 0 20px #ff4444, 0 0 40px #ff0000; }
+      to { transform: scale(1.05); text-shadow: 0 0 30px #ff4444, 0 0 60px #ff0000, 0 0 80px rgba(255, 68, 68, 0.6); }
+    }
+
+    .game-over-subtitle {
+      font-size: 1.5rem;
+      color: #00ff88;
+      margin-bottom: 2rem;
+      text-shadow: 0 0 15px #00ff88;
+      animation: subtitleGlow 2s ease-in-out infinite alternate;
+    }
+
+    @keyframes subtitleGlow {
+      from { opacity: 0.9; }
+      to { opacity: 1; text-shadow: 0 0 25px #00ff88, 0 0 40px rgba(0, 255, 136, 0.5); }
+    }
+
+    .game-over-score {
+      font-size: 1.2rem;
+      color: #fff;
+      margin-bottom: 1.5rem;
+    }
+
+    .game-over-retry-btn {
+      font-size: 1rem;
+      padding: 1rem 2rem;
+    }
+
+    /* 기록판 패널 */
+    .leaderboard-panel {
+      min-width: 260px;
+      max-width: 260px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 2px solid #00ff88;
+      border-radius: 8px;
+      padding: 1rem;
+      box-shadow: 0 0 15px rgba(0, 255, 136, 0.2);
+    }
+
+    .panel-title {
+      font-size: 0.95rem;
+      color: #00ff88;
+      margin-bottom: 1rem;
+      text-align: center;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid rgba(0, 255, 136, 0.3);
+    }
+
+    .my-best-score {
+      background: rgba(0, 255, 136, 0.15);
+      border: 2px solid #00ff88;
+      border-radius: 6px;
+      padding: 0.8rem;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .my-best-label {
+      font-size: 0.75rem;
+      color: #00ff88;
+      margin-bottom: 0.3rem;
+    }
+
+    .my-best-value {
+      font-size: 1.3rem;
+      color: #fff;
+    }
+
+    .my-best-rank {
+      font-size: 0.8rem;
+      color: #f0f000;
+      margin-top: 0.3rem;
+    }
+
+    .leaderboard-list {
+      list-style: none;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+
+    .leaderboard-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0.6rem;
+      font-size: 0.8rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .leaderboard-item.my-score {
+      background: rgba(0, 255, 136, 0.2);
+      border-radius: 4px;
+      margin: 0.2rem 0;
+    }
+
+    .leaderboard-rank {
+      color: #f0f000;
+      min-width: 2rem;
+    }
+
+    .leaderboard-name {
+      color: #fff;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .leaderboard-score {
+      color: #00ff88;
+      margin-left: 0.5rem;
+    }
+
+    .leaderboard-link {
+      display: block;
+      margin-top: 0.8rem;
+      font-size: 0.6rem;
+      color: #00ff88;
+      text-align: center;
+      text-decoration: none;
+      padding: 0.5rem;
+      border: 1px solid rgba(0, 255, 136, 0.5);
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+
+    .leaderboard-link:hover {
+      background: rgba(0, 255, 136, 0.15);
+    }
+
+    /* 대화창 패널 */
+    .chat-panel {
+      min-width: 320px;
+      max-width: 320px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 2px solid #00ff88;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 0 15px rgba(0, 255, 136, 0.2);
+      max-height: 500px;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+      min-height: 250px;
+      max-height: 350px;
+    }
+
+    .chat-message {
+      margin-bottom: 0.8rem;
+      padding: 0.5rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      line-height: 1.6;
+      word-break: break-word;
+    }
+
+    .chat-message.other {
+      background: rgba(255, 255, 255, 0.08);
+      border-left: 3px solid #00ff88;
+    }
+
+    .chat-message.mine {
+      background: rgba(0, 255, 136, 0.2);
+      border-left: 3px solid #00ff88;
+      margin-left: 1rem;
+    }
+
+    .chat-sender {
+      color: #00ff88;
+      margin-bottom: 0.2rem;
+      font-size: 0.65rem;
+    }
+
+    .chat-input-area {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.8rem;
+      border-top: 2px solid rgba(0, 255, 136, 0.3);
+    }
+
+    .chat-input {
+      flex: 1;
+      font-family: 'Press Start 2P', cursive;
+      font-size: 0.7rem;
+      padding: 0.6rem;
+      background: rgba(0, 0, 0, 0.8);
+      border: 2px solid #00ff88;
+      border-radius: 4px;
+      color: #fff;
+    }
+
+    .chat-input::placeholder {
+      color: #666;
+    }
+
+    .chat-send-btn {
+      font-size: 0.7rem;
+      padding: 0.6rem 0.8rem;
+    }
+
+    /* 이름 입력 모달 (탑10 진입 시) */
+    .name-input-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 2500;
+    }
+
+    .name-input-overlay.visible {
+      display: flex;
+    }
+
+    .name-input-box {
+      background: rgba(0, 20, 40, 0.95);
+      border: 4px solid #00ff88;
+      border-radius: 8px;
+      padding: 2rem;
+      text-align: center;
+      box-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
+    }
+
+    .name-input-title {
+      font-size: 1rem;
+      color: #00ff88;
+      margin-bottom: 1rem;
+      line-height: 1.6;
+    }
+
+    .name-input-field {
+      font-family: 'Press Start 2P', cursive;
+      font-size: 0.9rem;
+      padding: 0.8rem 1rem;
+      width: 100%;
+      max-width: 280px;
+      margin-bottom: 1rem;
+      background: #0d0d0d;
+      border: 2px solid #00ff88;
+      border-radius: 4px;
+      color: #fff;
+    }
+
+    .name-input-field::placeholder {
+      color: #555;
+    }
+
+    .name-input-hint {
+      font-size: 0.5rem;
+      color: #888;
+      margin-bottom: 1rem;
+    }
+
+    .name-input-btn {
+      font-size: 0.8rem;
+      padding: 0.8rem 1.5rem;
+    }
+
+    /* 챗봇 위젯 - 오른쪽 하단 */
+    .chatbot-widget {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 1500;
+      font-family: 'Press Start 2P', cursive;
+    }
+
+    .chatbot-toggle-btn {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: #00ff88;
+      color: #0a0a1a;
+      border: 3px solid #00cc6a;
+      cursor: pointer;
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 15px rgba(0, 255, 136, 0.4);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .chatbot-toggle-btn:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 20px rgba(0, 255, 136, 0.5);
+    }
+
+    .chatbot-window {
+      position: absolute;
+      bottom: 70px;
+      right: 0;
+      width: 360px;
+      max-height: 450px;
+      background: rgba(0, 20, 40, 0.98);
+      border: 3px solid #00ff88;
+      border-radius: 8px;
+      box-shadow: 0 0 25px rgba(0, 255, 136, 0.3);
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .chatbot-window.open {
+      display: flex;
+    }
+
+    .chatbot-header {
+      padding: 0.8rem 1rem;
+      background: rgba(0, 255, 136, 0.15);
+      border-bottom: 2px solid #00ff88;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .chatbot-title {
+      font-size: 0.9rem;
+      color: #00ff88;
+    }
+
+    .chatbot-close-btn {
+      background: none;
+      border: none;
+      color: #00ff88;
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 0.2rem;
+    }
+
+    .chatbot-close-btn:hover {
+      color: #fff;
+    }
+
+    .chatbot-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+      min-height: 220px;
+      max-height: 320px;
+    }
+
+    .chatbot-msg {
+      margin-bottom: 0.8rem;
+      padding: 0.5rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      line-height: 1.6;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    .chatbot-msg.user {
+      background: rgba(0, 255, 136, 0.2);
+      border-left: 3px solid #00ff88;
+      margin-left: 1rem;
+    }
+
+    .chatbot-msg.bot {
+      background: rgba(255, 255, 255, 0.08);
+      border-left: 3px solid #00ff88;
+    }
+
+    .chatbot-input-area {
+      display: flex;
+      gap: 0.4rem;
+      padding: 0.6rem;
+      border-top: 2px solid rgba(0, 255, 136, 0.3);
+    }
+
+    .chatbot-input {
+      flex: 1;
+      font-family: 'Press Start 2P', cursive;
+      font-size: 0.75rem;
+      padding: 0.5rem;
+      background: #0d0d0d;
+      border: 2px solid #00ff88;
+      border-radius: 4px;
+      color: #fff;
+    }
+
+    .chatbot-input::placeholder {
+      color: #555;
+    }
+
+    .chatbot-send-btn {
+      font-size: 0.75rem;
+      padding: 0.5rem 0.6rem;
+    }
+
+    /* 키보드 모드 표시 */
+    .keyboard-mode-indicator {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 1.5rem;
+      padding: 0.5rem 0.8rem;
+      font-size: 0.6rem;
+      background: rgba(0, 0, 0, 0.8);
+      border: 2px solid #00ff88;
+      border-radius: 4px;
+      color: #00ff88;
+      z-index: 1400;
+      transition: opacity 0.3s;
+    }
+
+    .keyboard-mode-indicator.chat-mode {
+      border-color: #f0f000;
+      color: #f0f000;
+    }
+  </style>
+</head>
+<body>
+  <div class="start-screen" id="startScreen">
+    <h1 class="start-title">TETRIS</h1>
+    <p class="start-instruction">
+      ← → : 이동<br>
+      ↑ : 회전<br>
+      ↓ : 빠르게 내리기<br>
+      SPACE : 즉시 낙하
+    </p>
+    <button class="btn start-btn" id="startBtn">게임 시작</button>
+  </div>
+
+  <div class="app-layout">
+    <!-- 기록판 -->
+    <aside class="leaderboard-panel">
+      <h2 class="panel-title">🏆 기록 순위</h2>
+      <div class="my-best-score">
+        <div class="my-best-label">내 최고 기록</div>
+        <div class="my-best-value" id="myBestScoreDisplay">0</div>
+        <div class="my-best-rank" id="myBestRankDisplay">- 위</div>
+      </div>
+      <ul class="leaderboard-list" id="leaderboardList"></ul>
+      <a href="leaderboard.html" target="_blank" class="leaderboard-link">📋 전체 기록 보기</a>
+    </aside>
+
+    <!-- 게임 영역 -->
+    <div class="game-container">
+      <div class="game-over-overlay" id="gameOverOverlay">
+        <h2 class="game-over-title">GAME OVER</h2>
+        <p class="game-over-subtitle">다시 해보세요!</p>
+        <p class="game-over-score" id="gameOverScoreDisplay">점수: 0</p>
+        <button class="btn game-over-retry-btn" id="retryBtn">다시 시작</button>
+      </div>
+      <div class="main-area">
+        <h1 class="game-title">TETRIS</h1>
+        <div class="game-board-wrapper">
+          <canvas id="gameCanvas" width="300" height="600"></canvas>
+        </div>
+      </div>
+
+      <div class="side-panel">
+        <div class="info-box">
+          <div class="info-label">점수</div>
+          <div class="info-value" id="scoreDisplay">0</div>
+        </div>
+        <div class="info-box">
+          <div class="info-label">레벨</div>
+          <div class="info-value" id="levelDisplay">1</div>
+        </div>
+        <div class="info-box">
+          <div class="info-label">다음 블록</div>
+          <canvas id="nextPieceCanvas" width="120" height="120"></canvas>
+        </div>
+        <div class="info-box">
+          <div class="info-label">조작법</div>
+          <div class="controls-info">
+            ← → 이동<br>
+            ↑ 회전<br>
+            ↓ 빠르게<br>
+            SPACE 낙하
+          </div>
+        </div>
+        <button class="btn music-toggle" id="musicToggle">🔊 BGM 켜기</button>
+      </div>
+    </div>
+
+    <!-- 대화창 -->
+    <aside class="chat-panel">
+      <h2 class="panel-title">💬 함께 대화하기</h2>
+      <div class="chat-messages" id="chatMessages"></div>
+      <div class="chat-input-area">
+        <input type="text" class="chat-input" id="chatInput" placeholder="메시지 입력..." maxlength="50">
+        <button class="btn chat-send-btn" id="chatSendBtn">전송</button>
+      </div>
+    </aside>
+  </div>
+
+  <div class="line-clear-overlay" id="lineClearOverlay"></div>
+
+  <!-- 키보드 모드 표시 (왼쪽 하단) -->
+  <div class="keyboard-mode-indicator" id="keyboardModeIndicator">🎮 게임 조작</div>
+
+  <!-- 챗봇 위젯 (오른쪽 하단) -->
+  <div class="chatbot-widget">
+    <div class="chatbot-window" id="chatbotWindow">
+      <div class="chatbot-header">
+        <span class="chatbot-title">🤖 테트리스 도우미</span>
+        <button class="chatbot-close-btn" id="chatbotCloseBtn">✕</button>
+      </div>
+      <div class="chatbot-messages" id="chatbotMessages"></div>
+      <div class="chatbot-input-area">
+        <input type="text" class="chatbot-input" id="chatbotInput" placeholder="질문을 입력하세요..." maxlength="80" autocomplete="off">
+        <button class="btn chatbot-send-btn" id="chatbotSendBtn">전송</button>
+      </div>
+    </div>
+    <button class="chatbot-toggle-btn" id="chatbotToggleBtn" title="챗봇 열기">💬</button>
+  </div>
+
+  <!-- 탑10 진입 시 이름 입력 모달 -->
+  <div class="name-input-overlay" id="nameInputOverlay">
+    <div class="name-input-box">
+      <p class="name-input-title">🎉 탑 10 진입!<br>기록에 남길 이름을 입력하세요</p>
+      <input type="text" class="name-input-field" id="nameInputField" placeholder="이름 (최대 10자)" maxlength="10" autocomplete="off">
+      <p class="name-input-hint">이름은 저장되어 다음에도 사용됩니다</p>
+      <button class="btn name-input-btn" id="nameInputConfirmBtn">확인</button>
+    </div>
+  </div>
+
+  <script src="tetris.js"></script>
+</body>
+</html>

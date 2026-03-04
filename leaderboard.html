@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>테트리스 기록판</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(180deg, #0a0a1a 0%, #1a1a2e 50%, #16213e 100%);
+      font-family: 'Press Start 2P', cursive;
+      color: #00ff88;
+      padding: 2rem;
+    }
+
+    .leaderboard-page {
+      max-width: 500px;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      border: 4px solid #00ff88;
+      border-radius: 8px;
+      padding: 2rem;
+      box-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
+    }
+
+    .page-title {
+      font-size: 1.5rem;
+      text-align: center;
+      margin-bottom: 1.5rem;
+      text-shadow: 0 0 10px #00ff88;
+    }
+
+    .leaderboard-list {
+      list-style: none;
+      margin-bottom: 1.5rem;
+    }
+
+    .leaderboard-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.8rem 1rem;
+      font-size: 0.9rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .leaderboard-item.top3 {
+      background: rgba(240, 240, 0, 0.1);
+      border-left: 4px solid #f0f000;
+    }
+
+    .leaderboard-rank {
+      color: #f0f000;
+      min-width: 3rem;
+      font-size: 1rem;
+    }
+
+    .leaderboard-name {
+      color: #fff;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin: 0 1rem;
+    }
+
+    .leaderboard-score {
+      color: #00ff88;
+      font-size: 0.9rem;
+    }
+
+    .share-section {
+      text-align: center;
+      padding-top: 1rem;
+      border-top: 2px solid rgba(0, 255, 136, 0.3);
+    }
+
+    .share-btn {
+      font-family: 'Press Start 2P', cursive;
+      font-size: 0.7rem;
+      padding: 0.8rem 1.2rem;
+      background: #00ff88;
+      color: #0a0a1a;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+    }
+
+    .share-btn:hover {
+      background: #00cc6a;
+      box-shadow: 0 0 15px rgba(0, 255, 136, 0.5);
+    }
+
+    .share-hint {
+      font-size: 0.5rem;
+      color: #888;
+      margin-top: 0.5rem;
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-top: 1rem;
+      font-size: 0.6rem;
+      color: #00ff88;
+      text-decoration: none;
+      padding: 0.5rem 1rem;
+      border: 1px solid rgba(0, 255, 136, 0.5);
+      border-radius: 4px;
+    }
+
+    .back-link:hover {
+      background: rgba(0, 255, 136, 0.15);
+    }
+
+    .empty-message {
+      text-align: center;
+      font-size: 0.8rem;
+      color: #888;
+      padding: 2rem;
+    }
+
+    .copied-toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #00ff88;
+      color: #0a0a1a;
+      padding: 0.8rem 1.5rem;
+      border-radius: 4px;
+      font-size: 0.6rem;
+      animation: fadeInOut 2s ease-out;
+      z-index: 1000;
+    }
+
+    @keyframes fadeInOut {
+      0%, 100% { opacity: 0; }
+      10%, 90% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="leaderboard-page">
+    <h1 class="page-title">🏆 테트리스 기록 TOP 10</h1>
+    <ul class="leaderboard-list" id="leaderboardList"></ul>
+    <div class="share-section">
+      <button class="share-btn" id="shareBtn">📤 공유 링크 복사</button>
+      <p class="share-hint">링크를 공유하면 다른 사람도 이 기록을 볼 수 있어요</p>
+      <a href="index.html" class="back-link">← 게임으로 돌아가기</a>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'tetris_leaderboard';
+
+    function getLeaderboardFromUrl() {
+      const hash = window.location.hash;
+      if (!hash || !hash.startsWith('#data=')) return null;
+      try {
+        const encoded = hash.replace('#data=', '');
+        const json = atob(decodeURIComponent(encoded));
+        return JSON.parse(json);
+      } catch (e) {
+        console.warn('URL 데이터 파싱 실패:', e);
+        return null;
+      }
+    }
+
+    function getLeaderboardFromStorage() {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) return JSON.parse(stored);
+      } catch (e) {
+        console.warn('저장소 읽기 실패:', e);
+      }
+      return [];
+    }
+
+    function getLeaderboardData() {
+      const fromUrl = getLeaderboardFromUrl();
+      if (fromUrl && fromUrl.length > 0) return fromUrl;
+      return getLeaderboardFromStorage();
+    }
+
+    function renderLeaderboard() {
+      const leaderboard = getLeaderboardData();
+      const listEl = document.getElementById('leaderboardList');
+
+      if (leaderboard.length === 0) {
+        listEl.innerHTML = '<li class="empty-message">아직 기록이 없어요.<br>게임을 플레이하고 탑10에 도전하세요!</li>';
+        return;
+      }
+
+      const sorted = [...leaderboard].sort((a, b) => b.score - a.score).slice(0, 10);
+      listEl.innerHTML = sorted.map((entry, index) => `
+        <li class="leaderboard-item ${index < 3 ? 'top3' : ''}">
+          <span class="leaderboard-rank">${index + 1}위</span>
+          <span class="leaderboard-name">${escapeHtml(entry.playerName)}</span>
+          <span class="leaderboard-score">${Number(entry.score).toLocaleString()}</span>
+        </li>
+      `).join('');
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function createShareUrl() {
+      const leaderboard = getLeaderboardFromStorage();
+      if (leaderboard.length === 0) return null;
+      const json = JSON.stringify(leaderboard);
+      const encoded = encodeURIComponent(btoa(json));
+      const baseUrl = window.location.href.split('#')[0];
+      return `${baseUrl}#data=${encoded}`;
+    }
+
+    function copyShareLink() {
+      const url = createShareUrl();
+      if (!url) {
+        alert('공유할 기록이 없어요. 먼저 게임을 플레이해보세요!');
+        return;
+      }
+      navigator.clipboard.writeText(url).then(() => {
+        showCopiedToast();
+      }).catch(() => {
+        prompt('아래 링크를 복사하세요:', url);
+      });
+    }
+
+    function showCopiedToast() {
+      const toast = document.createElement('div');
+      toast.className = 'copied-toast';
+      toast.textContent = '✓ 링크가 복사되었습니다!';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2000);
+    }
+
+    document.getElementById('shareBtn').addEventListener('click', copyShareLink);
+    renderLeaderboard();
+  </script>
+</body>
+</html>
